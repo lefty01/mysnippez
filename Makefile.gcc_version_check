@@ -1,0 +1,29 @@
+
+
+NEED_GCC_MAJOR = 4
+NEED_GCC_MINOR = 5
+
+GCCVERSION := $(shell $(CC) -v 2>&1|sed -n 's/^gcc version \([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+
+GCC_MAJOR := $(shell echo $(GCCVERSION)|cut -d '.' -f1)
+GCC_MINOR := $(shell echo $(GCCVERSION)|cut -d '.' -f2)
+GCC_MICRO := $(shell echo $(GCCVERSION)|cut -d '.' -f3)
+
+
+all: gccversioncheck
+
+gccversioncheck:
+	@if [ -z $(GCCVERSION) ]; then \
+		echo "Error could not get gcc version"; \
+		exit 10; \
+	fi
+	@echo "gcc version $(GCCVERSION)"
+	@if [ $(GCC_MAJOR) -lt $(NEED_GCC_MAJOR) ]; then \
+		echo "Wrong major number! Need gcc version >= $(NEED_GCC_MAJOR).$(NEED_GCC_MINOR)"; \
+		exit 20; \
+	fi
+	@if [ $(GCC_MAJOR) -eq $(NEED_GCC_MAJOR) -a $(GCC_MINOR) -lt $(NEED_GCC_MINOR) ]; then \
+		echo "Error need gcc >= $(NEED_GCC_MAJOR).$(NEED_GCC_MINOR)"; \
+		exit 30; \
+	fi
+
