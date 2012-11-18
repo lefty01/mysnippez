@@ -51,19 +51,59 @@
 
 const char *logfile = "/var/log/gpstraced.log";
 const char *gpstracefile = "/tmp/gpstrace.txt";
+const char const *version = "gpstraced version 0.1";
 
 /**
  * convert string degree/decimal minutes to decimal degree floating point num
  */
 float deg2dec(const char *, const char *);
+
 /**
  * Split string at delimiter. Caller need to free returned pointer of pointers.
  */
 char** splitstr(char* in_str, const char* delims, int *count);
+
 /**
  * Return zulu time as string.
  */
 char* zulutime(const time_t *);
+
+/**
+ * open log/trace file for writing/appending. file must exist!
+ */
+FILE *open_logfile(const char *);
+
+/**
+ * log error msg and exit
+ */
+void log_error(const char* msg, int error, FILE* log);
+
+/**
+ * log info msg
+ */
+	int log_info(const char* msg, FILE* log);
+
+/**
+ * open/create new gpx xml file and add header data.
+ */
+FILE *open_newxml(void);
+
+/**
+ * write gpx "footer" and close file.
+ */
+int close_xmlfile(FILE *);
+
+/**
+ * parse incoming msg from gps tracker and put into gpx file.
+ */
+int parse_and_write(const char *, FILE *, FILE *);
+
+/**
+ * degmin2dec
+ * convert the input lat or lon coordinate given as a string in degree and
+ * decimal minute into a decimal (degree) number.
+ */
+float degmin2dec(const char *degmin, const char *dir);
 
 
 char*
@@ -101,7 +141,7 @@ open_newxml(void)
 	bzero(timestamp, 22);
 	strncpy(timestamp, zulutime(&ltime), 22);
 
-	sprintf(xmlfile, "/tmp/gpstraced_%s.xml", timestamp);
+	sprintf(xmlfile, "/tmp/gpstraced_%s.gpx", timestamp);
 
 	fd = open(xmlfile, O_WRONLY|O_APPEND|O_NOFOLLOW|O_NONBLOCK|O_CREAT,
 		  S_IRUSR|S_IRGRP|S_IROTH);
@@ -131,9 +171,6 @@ close_xmlfile(FILE *xml)
 	return 0;
 }
 
-/**
- * open log/trace file for writing/appending. file must exist
- */
 FILE *
 open_logfile(const char * filename)
 {
@@ -266,7 +303,7 @@ splitstr(char* in_str, const char* delims, int *count)
  * array[21] is 22D7
  * array[22] is BDD7;9F
  */
-
+// FIXME: the "trace" file is obsolete now since we log to a gpx file
 int
 parse_and_write(const char* msg, FILE* trace, FILE* xml)
 {
@@ -287,8 +324,8 @@ parse_and_write(const char* msg, FILE* trace, FILE* xml)
 
 	store = splitstr(s, ",", &count);
 
-	dec_lat = deg2dec(store[5], store[6]);
-	dec_lon = deg2dec(store[7], store[8]);
+	dec_lat = degmin2dec(store[5], store[6]);
+	dec_lon = degmin2dec(store[7], store[8]);
 
 	// 2012-11-16T14:14:35Z, 192047.000, 4840.5580, 00859.8861, 48.675968, 8.998101, Battery=75%
 	// timestamp           , store[3]  , store[5],  store[7],   dec_lat  , dec_lon , store[17]
@@ -296,7 +333,7 @@ parse_and_write(const char* msg, FILE* trace, FILE* xml)
 		store[5], store[7], dec_lat, dec_lon, store[16], store[17]);
 
 	/* write xml */
-	fprintf(xml, "<trkpt lat=\"%f\" lon=\"%f\"></trkpt>\n",
+	fprintf(xml, "<trkpt lat=\"%f\" lon=\"%f\">\n",
 		dec_lat, dec_lon);
 	fprintf(xml, " <ele>%s</ele>\n", store[16]); // GPS provided elevation
 	fprintf(xml, " <time>%s</time>\n", timestamp);
@@ -318,7 +355,7 @@ parse_and_write(const char* msg, FILE* trace, FILE* xml)
 
 // FIXME: direction north/south, east/west
 float
-deg2dec(const char *degmin, const char *dir)
+degmin2dec(const char *degmin, const char *dir)
 {
 	int lat1, lat2;
 	int n;
@@ -330,7 +367,7 @@ deg2dec(const char *degmin, const char *dir)
 		n = sscanf(degmin, "%d.%d", &lat1, &lat2);
 		if (2 != n) {
 			perror("sscanf failed");
-			return -1;
+			return -1.0;
 		}
 		deg_min = div(lat1, 100);
 		ret = deg_min.quot + (lat2 / 10000.0 + deg_min.rem) / 60;
@@ -342,18 +379,19 @@ deg2dec(const char *degmin, const char *dir)
 		n = sscanf(degmin, "%d.%d", &lat1, &lat2);
 		if (2 != n) {
 			perror("sscanf failed");
-			return -1;
+			return -1.0;
 		}
 		deg_min = div(lat1, 100);
 		ret = deg_min.quot + (lat2 / 10000.0 + deg_min.rem) / 60;
 		return ret;
 	}
-		return ret;
+	return ret;
 }
 
 
 int
-main(int argc, char *argv[])
+main(int argc __attribute__((__unused__)),
+     char *argv[] __attribute__((__unused__)))
 {
 	pid_t pid;
 	FILE *log;

@@ -1,7 +1,8 @@
 /* copyright andreas loeffler <al@exitzero.de> 2012 */
 
-#include "includes.h"
-
+#include <stdio.h>
+#include <time.h>
+#include <string.h>
 
 
 char* zulutime1(const time_t *timep);

@@ -2,7 +2,6 @@
 #ifndef _GPSTRACED_H_
 #define _GPSTRACED_H_
 
-//const char _track_name[] = "$TRACK___________NAME$";
 
 const char xml_head_1[] =						\
 	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"			\
