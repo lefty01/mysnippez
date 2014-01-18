@@ -47,11 +47,10 @@
 #include "gpstraced.h"
 
 #define MAX_SIZE 256
-#define LISTEN_PORT 1337
 
 const char *logfile = "/var/log/gpstraced.log";
 const char *gpstracefile = "/tmp/gpstrace.txt";
-const char const *version = "gpstraced version 0.1";
+const char const *version = "gpstraced version 0.2";
 
 /**
  * convert string degree/decimal minutes to decimal degree floating point num
@@ -266,43 +265,6 @@ splitstr(char* in_str, const char* delims, int *count)
 	return store;
 }
 
-// STX,CAT001,$GPRMC,192047.000,A,4840.5580,N,00859.8861,E,0.22,355.29,101112,,,A*6E,F,,imei:012896005317034,05,437.2,Battery=75%,,1,262,03,22D7,BDD7;9F
-//    RMC          Recommended Minimum sentence C
-//    123519       Fix taken at 12:35:19 UTC
-//    A            Status A=active or V=Void.
-//    4807.038,N   Latitude 48 deg 07.038' N
-//    01131.000,E  Longitude 11 deg 31.000' E
-//    022.4        Speed over the ground in knots
-//    084.4        Track angle in degrees True
-//    230394       Date - 23rd of March 1994
-//    003.1,W      Magnetic Variation
-//    *6A          The checksum data, always begins with *
-/*
- * split done, count=23
- * array[0]  is STX
- * array[1]  is CAT001
- * array[2]  is $GPRMC
- * array[3]  is 192047.000
- * array[4]  is A
- * array[5]  is 4840.5580
- * array[6]  is N
- * array[7]  is 00859.8861
- * array[8]  is E
- * array[9]  is 0.22
- * array[10] is 355.29
- * array[11] is 101112
- * array[12] is A*6E
- * array[13] is F
- * array[14] is imei:012896005317034
- * array[15] is 05
- * array[16] is 437.2
- * array[17] is Battery=75%
- * array[18] is 1
- * array[19] is 262
- * array[20] is 03
- * array[21] is 22D7
- * array[22] is BDD7;9F
- */
 // FIXME: the "trace" file is obsolete now since we log to a gpx file
 int
 parse_and_write(const char* msg, FILE* trace, FILE* xml)
@@ -327,8 +289,6 @@ parse_and_write(const char* msg, FILE* trace, FILE* xml)
 	dec_lat = degmin2dec(store[5], store[6]);
 	dec_lon = degmin2dec(store[7], store[8]);
 
-	// 2012-11-16T14:14:35Z, 192047.000, 4840.5580, 00859.8861, 48.675968, 8.998101, Battery=75%
-	// timestamp           , store[3]  , store[5],  store[7],   dec_lat  , dec_lon , store[17]
 	fprintf(trace, "%s, %s, %s, %s, %f, %f, %s, %s\n", timestamp, store[3],
 		store[5], store[7], dec_lat, dec_lon, store[16], store[17]);
 
@@ -338,11 +298,6 @@ parse_and_write(const char* msg, FILE* trace, FILE* xml)
 	fprintf(xml, " <ele>%s</ele>\n", store[16]); // GPS provided elevation
 	fprintf(xml, " <time>%s</time>\n", timestamp);
 	fprintf(xml, "</trkpt>\n");
-
-	/* myLieu xml geo file ...
-	 * <?xml version="1.0" encoding="iso-8859-1"?>
-	 * <markers><marker time="2009-02-15T19:32:33.000Z+1:00" lat="49.302" lng="8.69" speed="12" alt="110" dir="0.0"/></markers>
-	 */
 
 	free(store);
 	free(s);
@@ -397,8 +352,43 @@ main(int argc __attribute__((__unused__)),
 	FILE *log;
 	FILE *trace;
 	FILE *xml;
+	unsigned int listen_port = 0;
+	int c;
+	char tracker_id[32] = "";
 
-	// FIXME: cmdline args for port, filenames, ...
+	while (1) {
+		int option_index = 0;
+		static struct option long_options[] = {
+			{"port", 1, 0, 'p'},
+			{"trackerid", 1, 0, 'i'},
+			{"verbose", 0, 0, 0},
+			{0, 0, 0, 0}
+		};
+
+		c = getopt_long(argc, argv, "p:i:v",
+				long_options, &option_index);
+		if (c == -1)
+			break;
+		switch (c) {
+		case 'p':
+			listen_port = strtol(optarg, (char **) NULL, 10);
+			if ((listen_port < 32768) || (listen_port > 65535)) {
+				fprintf(stderr, "Invalid value for port (only 32768 to 65535)");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'i':
+			snprintf(tracker_id, 16, "STX,%s", optarg);
+			//printf("tracker id with value '%s'\n", tracker_id);
+			break;
+			//default:
+			//	break;
+		}
+	}
+	if (0 == listen_port && 0 == strlen(tracker_id)) {
+		fprintf(stderr, "Usage: gpstraced --port|-p PORT --trackerid|-i TRACKERID\n");
+		exit(EXIT_FAILURE);
+	}
 
 	log = open_logfile(logfile);
 	if (NULL == log) {
@@ -451,7 +441,7 @@ main(int argc __attribute__((__unused__)),
 	bzero((char *)&serv_addr, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(LISTEN_PORT);
+	serv_addr.sin_port = htons(listen_port);
 
 	if (bind(sock_descriptor, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 		log_error("Failed to bind", errno, log);
@@ -505,7 +495,8 @@ main(int argc __attribute__((__unused__)),
 				exit(EXIT_SUCCESS);
 			}
 			// catTraq specific!!
-			if (0 == strncmp("STX,", buff, 4)) {
+			//log_info(tracker_id, log);
+			if (0 == strncmp(tracker_id, buff, 10)) {
 				parse_and_write(buff, trace, xml);
 			}
 
