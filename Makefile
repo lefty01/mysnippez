@@ -10,7 +10,7 @@ CFLAGS += -Wstrict-prototypes
 
 
 
-SRCS = gpstraced.c timestamp.c
+SRCS = gpstraced.c timestamp.c laufz.c
 
 
 APPS=$(basename $(SRCS))
@@ -29,3 +29,5 @@ clean:
 
 distclean: clean
 	$(RM) *~
+	$(APPS)
+
