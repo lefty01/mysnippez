@@ -1,3 +1,6 @@
 
 language: cpp
 
+
+install: make && make test
+
