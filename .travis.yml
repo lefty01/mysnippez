@@ -2,5 +2,5 @@
 language: cpp
 
 
-install: make && make test
+script: make && make test
 
