@@ -1,0 +1,47 @@
+#!/bin/sh
+
+
+path=/storage/sdcard1/Android/media/com.marginz.snap/DCIM/Camera
+#echo "Image Path: $path"
+
+if [ "xlistall" = "x$1" ]; then
+    adb shell busybox ls -rt1 $path
+    exit
+fi
+if [ "xlisttoday" = "x$1" ]; then
+    today=$(date +%Y%m%d)
+    adb shell busybox ls -rt1 $path | grep $today
+    exit
+fi
+
+
+if [ "xgettoday" = "x$1" ]; then
+    list=/tmp/lgfiles
+    today=$(date +%Y%m%d)
+    echo "get todays images and videos"
+    adb shell busybox ls -rt1 $path | grep $today > $list
+    dos2unix $list
+    for file in `cat $list`; do
+	    echo "adb pull $path/$file"
+	    adb pull "$path/$file"
+    done
+    exit
+fi
+
+
+list=$1
+
+if [ -z $list ]; then
+    exit 0
+fi
+
+
+#folder=$2 | $path
+
+#adb shell find "/sdcard/Folder1" -iname "*.jpg" | tr -d '\015' | while read line; do adb pull $line; done;
+
+for file in `cat $list`; do
+	echo "adb pull $path/$file"
+	adb pull $path/$file
+done
+
