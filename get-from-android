@@ -1,19 +1,14 @@
 #!/bin/sh
 
 path=/sdcard/DCIM/Camera
-#path=/storage/sdcard1/Android/media/com.marginz.snap/DCIM/Camera
-#echo "Image Path: $path"
-
 lscmd='adb shell /system/xbin/ls -rt1 '
 
 if [ "xlistall" = "x$1" ]; then
-    #adb shell busybox ls -rt1 $path
     $lscmd $path
     exit
 fi
 if [ "xlisttoday" = "x$1" ]; then
     today=$(date +%Y%m%d)
-    #adb shell busybox ls -rt1 $path | grep $today
     $lscmd $path | grep $today
     exit
 fi
@@ -41,7 +36,6 @@ if [ "xgetlast" = "x$1" ]; then
     adb pull "$path/$lastimg"
     exit
 fi
-
 
 list=$1
 
