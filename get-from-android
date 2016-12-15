@@ -1,0 +1,61 @@
+#!/bin/sh
+
+path=/sdcard/DCIM/Camera
+#path=/storage/sdcard1/Android/media/com.marginz.snap/DCIM/Camera
+#echo "Image Path: $path"
+
+lscmd='adb shell /system/xbin/ls -rt1 '
+
+if [ "xlistall" = "x$1" ]; then
+    #adb shell busybox ls -rt1 $path
+    $lscmd $path
+    exit
+fi
+if [ "xlisttoday" = "x$1" ]; then
+    today=$(date +%Y%m%d)
+    #adb shell busybox ls -rt1 $path | grep $today
+    $lscmd $path | grep $today
+    exit
+fi
+
+
+if [ "xgettoday" = "x$1" ]; then
+    list=/tmp/lgfiles
+    today=$(date +%Y%m%d)
+    echo "get todays images and videos"
+    $lscmd $path | grep $today > $list
+    dos2unix $list
+    for file in `cat $list`; do
+	    echo "adb pull $path/$file"
+	    adb pull "$path/$file"
+    done
+    exit
+fi
+
+if [ "xgetlast" = "x$1" ]; then
+    list=/tmp/lgfiles
+    today=$(date +%Y%m%d)
+    echo "get todays images and videos"
+    lastimg=$($lscmd $path | grep $today | tail -n1)
+    echo "adb pull $path/$lastimg"
+    adb pull "$path/$lastimg"
+    exit
+fi
+
+
+list=$1
+
+if [ -z $list ]; then
+    exit 0
+fi
+
+
+#folder=$2 | $path
+
+#adb shell find "/sdcard/Folder1" -iname "*.jpg" | tr -d '\015' | while read line; do adb pull $line; done;
+
+for file in `cat $list`; do
+	echo "adb pull $path/$file"
+	adb pull $path/$file
+done
+
