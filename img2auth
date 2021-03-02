@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# prereq: using inspect from https://github.com/lefty01/quirc
+#         using otpauth from https://github.com/dim13/otpauth
+# 1. in google auth app 'export as qr-code', make photograph of qr code
+#    save image as jpeg or png
+#    you probably get one image for up to 10 codes (so you might have more than one image file)
+# 2. run this script in directory containing the qr-code image(s)
+
+let -i i=1
+let -i n
+let -i entries=0
+let -i skipped=0
+overwrite='N'
+n=$(ls -1 *.jpg|wc -l)
+
+if [ "$1" = "-overwrite" ]; then
+    overwrite='y'
+fi
+
+echo "found $n images"
+for img in `ls -1 *.jpg`; do
+    echo "$i/$n $img"
+    link=$(inspect -n $img | grep Payload: | awk '{print $2}')
+    echo "processing link: $link"
+    otpauth=$(~/go/bin/otpauth -link $link)
+
+    for auth in `echo $otpauth`; do
+	echo "auth: $auth"
+	name=$(echo -n $auth | awk -F '?' '{print $1}' | sed 's#otpauth://totp/##')
+	issuer=$(echo -n $auth | awk -F '?' '{print $2}' | awk -F '&' '{print $3}' | awk -F '=' '{print $2}')
+	secret=$(echo -n $auth | awk -F '?' '{print $2}' | awk -F '&' '{print $5}' | awk -F '=' '{print $2}')
+	echo "cmd: ykman oath add --issuer $issuer $name $secret --touch"
+	echo $overwrite | ykman oath add --issuer $issuer $name $secret --touch
+	if [ $? -eq 1 ]; then
+	    let skipped=skipped+1
+	fi
+	let entries=entries+1
+    done
+    let i=i+1
+done
+
+echo "processed $entries entries, skipped (existing) $skipped entries"
