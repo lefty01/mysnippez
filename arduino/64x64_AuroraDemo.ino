@@ -1,4 +1,4 @@
-#define VERSION "0.0.4"
+#define VERSION "0.0.5"
 #define MQTTDEVICEID "ESP32_AURORA1"
 #define OTA_HOSTNAME "ESP32_AURORA1"
 
@@ -40,6 +40,10 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h> // provides WiFiClientSecure
 
+// Callback function header
+void mqttCallback(const char* topic, const byte* payload, unsigned int length);
+
+
 MatrixPanel_I2S_DMA matrix;
 
 WiFiClientSecure net;
@@ -56,11 +60,13 @@ const int maxMqttRetry = 5;
 
 const char* mqttPattern       = MQTTDEVICEID "/pattern";
 const char* mqttPatternSet    = MQTTDEVICEID "/pattern/set";
-
 const char* mqttPalette       = MQTTDEVICEID "/palette";
 const char* mqttPaletteSet    = MQTTDEVICEID "/palette/set";
-const char* mqttBrightness    = MQTTDEVICEID "/brightness";
+//const char* mqttBrightness    = MQTTDEVICEID "/brightness";
 const char* mqttBrightnessSet = MQTTDEVICEID "/brightness/set";
+const char* mqttDurationSet   = MQTTDEVICEID "/duration/set";
+const char* mqttModeSet       = MQTTDEVICEID "/mode/set";
+const char* mqttMode          = MQTTDEVICEID "/mode";
 const char* mqttState         = MQTTDEVICEID "/state";
 
 
@@ -89,8 +95,9 @@ Patterns patterns;
 /* -------------------------- Some variables -------------------------- */
 unsigned long fps = 0, fps_timer; // fps (this is NOT a matix refresh rate!)
 unsigned int default_fps = 30, pattern_fps = 30;  // default fps limit (this is not a matix refresh conuter!)
-unsigned long ms_animation_max_duration = 60000;  // 20 seconds
-unsigned long last_frame=0, ms_previous=0;
+unsigned long ms_animation_max_duration = 60000;  // 60 seconds
+unsigned long last_frame = 0, ms_previous = 0;
+boolean auto_change = true;
 
 void setup()
 {
@@ -157,6 +164,7 @@ void setup()
 			    matrix.drawLine(0,                  matrix.height() - 1 - row,
 					    matrix.width() - 1, matrix.height() - 1 - row,
 					    matrix.color444(1, 0, 14));
+			    
 			    // fixme overlay percentage value ...
 			  });
     ArduinoOTA.onError([](ota_error_t error) {
@@ -224,7 +232,7 @@ void loop()
 
   // menu.run(mainMenuItems, mainMenuItemCount);  
 
-  if ((millis() - ms_previous) > ms_animation_max_duration) {
+  if (auto_change && ((millis() - ms_previous) > ms_animation_max_duration)) {
     patterns.stop();
     patterns.moveRandom(1);
     //patterns.move(1);
