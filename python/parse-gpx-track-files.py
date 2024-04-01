@@ -64,7 +64,7 @@ for line in sys.stdin:
     m = re.match(r'.*\.(\d{4,4})(\d{2,2})(\d{2,2})\d{6,6}\.gpx', filename)
     if not m:
         continue
-    
+
     year     = int(m.group(1))
     month    = int(m.group(2))
     day      = int(m.group(3))
@@ -98,7 +98,7 @@ for line in sys.stdin:
         if args.verbose:
             print("skipping ... no matching distance")
         continue
-    
+
     print(f"file: {filename}")
     print(f"length: {gpx.length_2d()/1000:.2f} ({gpx[0].get_points_no()} pts)")
     print(f"start time:  {dayName}, {firstPoint.time}")
@@ -115,19 +115,19 @@ for line in sys.stdin:
     df = Converter(input_file=filename).gpx_to_dataframe()
     if args.verbose > 2:
         print(df)
-    
+
     if firstPoint.time != None:
         fig = px.scatter_mapbox(
-            df, 
-            lat="latitude", 
+            df,
+            lat="latitude",
             lon="longitude",
             hover_name="time",
             zoom=12
         )
     else:
         fig = px.scatter_mapbox(
-            df, 
-            lat="latitude", 
+            df,
+            lat="latitude",
             lon="longitude",
             zoom=12
         )
